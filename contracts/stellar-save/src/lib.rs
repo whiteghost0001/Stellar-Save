@@ -9201,7 +9201,8 @@ mod tests {
         let client = StellarSaveContractClient::new(&env, &contract_id);
 
         let creator = Address::generate(&env);
-        let group_id = client.create_group(&creator, &100, &3600, &3);
+        let token_address = env.register_stellar_asset_contract_v2(Address::generate(&env)).address();
+        let group_id = client.create_group(&creator, &100, &3600, &3, &token_address);
 
         // Group is in Pending state by default, should fail
         let result = client.try_transfer_payout(&group_id, &creator, &100, &0);
@@ -9678,7 +9679,8 @@ mod tests {
         let client = StellarSaveContractClient::new(&env, &contract_id);
 
         let creator = Address::generate(&env);
-        let group_id = client.create_group(&creator, &100, &3600, &3);
+        let token_address = env.register_stellar_asset_contract_v2(Address::generate(&env)).address();
+        let group_id = client.create_group(&creator, &100, &3600, &3, &token_address);
 
         client.join_group(&group_id, &creator);
 
@@ -9705,7 +9707,8 @@ mod tests {
         let client = StellarSaveContractClient::new(&env, &contract_id);
 
         let creator = Address::generate(&env);
-        let group_id = client.create_group(&creator, &100, &3600, &3);
+        let token_address = env.register_stellar_asset_contract_v2(Address::generate(&env)).address();
+        let group_id = client.create_group(&creator, &100, &3600, &3, &token_address);
 
         client.join_group(&group_id, &creator);
 
@@ -11100,6 +11103,51 @@ mod tests {
         let (group_id, creator, _member) = setup_group_with_member(&env);
 
         client.resolve_dispute(&group_id, &creator, &String::from_str(&env, "nothing to resolve"));
+    }
+
+    // Task 5.1: Unit tests for get_token_config (Requirements 2.3, 2.4)
+
+    /// Verifies that get_token_config returns the correct TokenConfig after a group is created
+    /// with a mock token. Requirements 2.3.
+    #[test]
+    fn test_get_token_config_success() {
+        let env = Env::default();
+        env.mock_all_auths();
+
+        let contract_id = env.register(StellarSaveContract, ());
+        let client = StellarSaveContractClient::new(&env, &contract_id);
+
+        // Deploy a mock SEP-41 token (Stellar Asset Contract)
+        let token_admin = Address::generate(&env);
+        let token_address = env
+            .register_stellar_asset_contract_v2(token_admin)
+            .address();
+
+        let creator = Address::generate(&env);
+
+        // Create a group with the mock token
+        let group_id = client.create_group(&creator, &100, &3600, &5, &token_address);
+
+        // Retrieve the token config
+        let token_config = client.get_token_config(&group_id);
+
+        // Verify the stored token address matches what was provided
+        assert_eq!(token_config.token_address, token_address);
+        // Stellar Asset Contracts report 7 decimals
+        assert_eq!(token_config.token_decimals, 7);
+    }
+
+    /// Verifies that get_token_config returns GroupNotFound for an unknown group_id.
+    /// Requirements 2.4.
+    #[test]
+    #[should_panic(expected = "Error(Contract, #1001)")]
+    fn test_get_token_config_not_found() {
+        let env = Env::default();
+        let contract_id = env.register(StellarSaveContract, ());
+        let client = StellarSaveContractClient::new(&env, &contract_id);
+
+        // Query a group_id that was never created
+        client.get_token_config(&9999);
     }
 
     // Task 5.1: Unit tests for get_token_config (Requirements 2.3, 2.4)
