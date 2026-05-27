@@ -11,6 +11,7 @@ import { ContractEventIndexer } from '../contract_event_indexer';
 import { AnalyticsService } from '../analytics_service';
 import { createAnalyticsMiddlewareStack } from '../analytics_middleware';
 import { Group, UserInteraction, UserPreference } from '../models';
+import { createNotificationRouter } from './notifications';
 
 // ── Shared service instances (passed in from app) ────────────────────────────
 export interface V1Services {
@@ -31,6 +32,9 @@ export function createV1Router(services: V1Services): Router {
 
   // Setup analytics middleware
   const analyticsMiddleware = createAnalyticsMiddlewareStack();
+
+  // Notifications (web push subscriptions, preferences, templates)
+  router.use('/notifications', createNotificationRouter());
 
   // Search
   router.get('/search', async (req, res) => {
