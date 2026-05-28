@@ -121,6 +121,10 @@ function MemberManagementDialog({ open, member, onClose, onRemove }: MemberManag
 }
 
 // ── Main Page ────────────────────────────────────────────────────────────────
+import { usePushNotifications } from '../hooks/usePushNotifications';
+import type { DetailedGroup } from '../utils/groupApi';
+import { TriggerPayoutButton } from '../components/TriggerPayoutButton';
+import { useContract } from '../hooks/useContract';
 
 /**
  * Group Detail Page — Issue #441
@@ -140,12 +144,15 @@ function GroupDetailContent() {
   const { activeAddress } = useWallet();
   const groupId = params.groupId ?? 'demo-group';
 
+  const { isCycleComplete } = useContract();
+
   const [group, setGroup] = useState<DetailedGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [managedMember, setManagedMember] = useState<GroupMember | null>(null);
   const [memberDialogOpen, setMemberDialogOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [allContributed, setAllContributed] = useState(false);
 
   const { copy, copied } = useClipboard();
 
@@ -155,7 +162,17 @@ function GroupDetailContent() {
     // Simulate async fetch with mock data
     setTimeout(() => {
       try {
-        setGroup(buildMockGroup(groupId));
+        const loaded = buildMockGroup(groupId);
+        setGroup(loaded);
+        // Check on-chain whether all contributions for the current cycle are complete.
+        // Fall back to comparing currentAmount vs targetAmount when the contract call fails.
+        const cycleNumber = loaded.currentCycle?.cycleNumber ?? 0;
+        isCycleComplete(BigInt(groupId), cycleNumber)
+          .then((complete) => setAllContributed(complete))
+          .catch(() => {
+            const cycle = loaded.currentCycle;
+            setAllContributed(!!cycle && cycle.currentAmount >= cycle.targetAmount);
+          });
       } catch {
         setError('Failed to load group details');
       } finally {
@@ -251,6 +268,12 @@ function GroupDetailContent() {
                   walletAddress={activeAddress ?? undefined}
                   onSuccess={(txHash, amount) => setSuccessMessage(`Contributed ${amount} XLM! TX: ${txHash}`)}
                   onError={(err) => setError(err.message)}
+                />
+              )}
+              {allContributed && group.status === 'active' && (
+                <TriggerPayoutButton
+                  groupId={group.id}
+                  onSuccess={(txHash) => setSuccessMessage(`Payout triggered! TX: ${txHash}`)}
                 />
               )}
             </Box>
