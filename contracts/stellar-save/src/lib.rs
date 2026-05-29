@@ -2412,10 +2412,38 @@ pub fn is_member(
         group.member_count += 1;
         env.storage().persistent().set(&group_key, &group);
 
+        // Update user member groups index
+        let user_groups_key = StorageKeyBuilder::user_member_groups(member.clone());
+        let mut user_groups: Vec<u64> = env
+            .storage()
+            .persistent()
+            .get(&user_groups_key)
+            .unwrap_or(Vec::new(&env));
+        user_groups.push_back(group_id);
+        env.storage()
+            .persistent()
+            .set(&user_groups_key, &user_groups);
+
         // Emit event
         EventEmitter::emit_member_joined(&env, group_id, member, group.member_count, timestamp);
 
         Ok(())
+    }
+
+    /// Returns a list of all group IDs that a member belongs to.
+    ///
+    /// # Arguments
+    /// * `env` - Soroban environment
+    /// * `member` - Address of the member to query
+    ///
+    /// # Returns
+    /// * `Vec<u64>` - A vector of group IDs the member belongs to
+    pub fn list_groups_by_member(env: Env, member: Address) -> Vec<u64> {
+        let user_groups_key = StorageKeyBuilder::user_member_groups(member);
+        env.storage()
+            .persistent()
+            .get(&user_groups_key)
+            .unwrap_or(Vec::new(&env))
     }
 
     /// Allows members to withdraw their share in emergency situations.
