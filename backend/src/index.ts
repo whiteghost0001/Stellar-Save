@@ -1,6 +1,9 @@
-import express from 'express';
-import cors from 'cors';
 import dotenv from 'dotenv';
+
+dotenv.config();
+
+import express from 'express';
+import { app } from './app';
 import { ApolloServer } from '@apollo/server';
 import { expressMiddleware } from '@apollo/server/express4';
 import { makeExecutableSchema } from '@graphql-tools/schema';
@@ -20,14 +23,11 @@ import { createV1Router } from './routes/v1';
 import { createV2Router } from './routes/v2';
 import { metricsMiddleware, metricsHandler } from './metrics';
 import { requestLogger } from './logger';
-import { createRateLimiterMiddleware } from './rate_limiter';
+import { createRateLimiterMiddleware, createAuthRateLimiterMiddleware } from './rate_limiter';
 import { createWebhookRouter } from './routes/webhooks';
 import { getMemberReputation } from './reputation_service';
 import { createAuthRouter } from './routes/auth';
 import { createUserRouter } from './routes/user';
-import { createRateLimiterMiddleware, createAuthRateLimiterMiddleware } from './rate_limiter';
-
-dotenv.config();
 
 const CSP_POLICY = [
   "default-src 'self'",
